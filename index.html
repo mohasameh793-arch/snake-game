@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#151d19">
+  <meta name="description" content="A small, quick Snake game. Collect fruit, dodge rocks, and build your best run.">
+  <title>Snake Club</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --night: #111915;
+      --night-2: #1a241f;
+      --panel: rgba(32, 42, 36, 0.9);
+      --panel-strong: rgba(22, 31, 27, 0.96);
+      --line: rgba(120, 143, 129, 0.3);
+      --paper: #edf2df;
+      --muted: #9aaa9b;
+      --acid: #c9f06b;
+      --acid-soft: rgba(201, 240, 107, 0.18);
+      --coral: #ff735e;
+      --sky: #75c9dc;
+      --board: #0d1713;
+      --shadow: rgba(9, 13, 11, 0.7);
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      background: var(--night);
+      color: var(--paper);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      min-width: 320px;
+      min-height: 100dvh;
+      margin: 0;
+      padding: 24px 20px 36px;
+      background:
+        radial-gradient(circle at top, rgba(201, 240, 107, 0.08), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(117, 201, 220, 0.1), transparent 30%),
+        var(--night);
+      background-image: radial-gradient(rgba(201, 240, 107, 0.08) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(16, 22, 19, 0.95), rgba(10, 15, 13, 1));
+      background-size: 24px 24px, 100% 100%;
+    }
+    button { font: inherit; }
+    button:focus-visible { outline: 3px solid var(--sky); outline-offset: 3px; }
+    .arcade { width: min(100%, 1040px); margin: 0 auto; }
+    .masthead, .brand, .edition, .section-label, .board-bar, .board-footer, .power-heading, .shop-heading {
+      display: flex;
+      align-items: center;
+    }
+    .masthead {
+      justify-content: space-between;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .brand { gap: 10px; color: var(--muted); font: 700 12px/1 "Consolas", monospace; text-transform: uppercase; }
+    .brand-mark {
+      display: grid;
+      width: 30px;
+      aspect-ratio: 1;
+      place-items: center;
+      color: var(--night);
+      background: linear-gradient(135deg, var(--acid), #eaf9a6);
+      font: 900 19px/1 Georgia, serif;
+      border-radius: 6px;
+      box-shadow: 0 0 18px rgba(201, 240, 107, 0.38);
+    }
+    .edition { gap: 8px; color: var(--muted); font: 700 11px/1 "Consolas", monospace; text-transform: uppercase; }
+    .edition::before { width: 7px; height: 7px; border-radius: 50%; background: var(--coral); content: ""; box-shadow: 0 0 12px rgba(255, 115, 94, 0.9); }
+    .icon-button, .action-button, .power-button, .shop button, .dpad button {
+      min-height: 44px;
+      color: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: rgba(32, 42, 36, 0.9);
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+      transition: border-color 140ms ease, background-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+    }
+    .icon-button:hover, .action-button:hover, .power-button:hover, .shop button:hover:not(:disabled), .dpad button:hover {
+      border-color: var(--acid);
+      box-shadow: 0 0 0 1px rgba(201, 240, 107, 0.22), 0 10px 20px rgba(0,0,0,0.18);
+    }
+    .icon-button:active, .action-button:active, .power-button:active, .shop button:active:not(:disabled), .dpad button:active { transform: translateY(1px); }
+    .icon-button { width: 44px; padding: 0; font-size: 18px; }
+    .intro { display: flex; align-items: end; justify-content: space-between; gap: 24px; padding: 25px 0 21px; }
+    .eyebrow { margin: 0 0 7px; color: var(--acid); font: 700 11px/1.2 "Consolas", monospace; text-transform: uppercase; letter-spacing: 0.12em; }
+    h1 { margin: 0; font: 700 42px/1 Georgia, "Times New Roman", serif; text-shadow: 0 10px 24px rgba(0,0,0,0.22); }
+    h1 span { color: var(--acid); }
+    .intro-copy { max-width: 300px; margin: 0 0 2px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+    .game-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 28px; align-items: start; }
+    .board-bar, .board-footer { justify-content: space-between; gap: 12px; }
+    .board-bar { padding: 0 0 10px; color: var(--muted); font: 700 11px/1.2 "Consolas", monospace; text-transform: uppercase; }
+    #gameState { color: var(--acid); }
+    #board {
+      position: relative;
+      width: 100%;
+      max-width: 560px;
+      aspect-ratio: 1;
+      padding: 8px;
+      border: 1px solid rgba(154, 170, 155, 0.26);
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(21, 31, 27, 0.92), rgba(14, 20, 17, 0.96));
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.02), 0 26px 50px rgba(0,0,0,0.34);
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: box-shadow 180ms ease, border-color 180ms ease, transform 180ms ease;
+    }
+    #board[data-state="running"] { box-shadow: 0 0 0 1px rgba(201, 240, 107, 0.14), 0 28px 60px rgba(6,12,9,0.42); }
+    #board[data-state="paused"] { border-color: rgba(117, 201, 220, 0.5); }
+    #board[data-state="over"] { border-color: rgba(255, 115, 94, 0.5); }
+    #game { display: block; width: 100%; height: 100%; border: 1px solid rgba(153, 170, 155, 0.18); border-radius: 8px; background: var(--board); image-rendering: pixelated; }
+    #overlay { position: absolute; inset: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; border-radius: 10px; background: rgba(13, 20, 16, 0.84); text-align: center; backdrop-filter: blur(2px); }
+    #overlay[hidden] { display: none; }
+    #overlay h2 { margin: 0; color: var(--acid); font: 700 34px/1.1 Georgia, "Times New Roman", serif; }
+    #overlay p { max-width: 310px; margin: 0; color: var(--paper); font-size: 14px; line-height: 1.5; }
+    .action-button { min-width: 148px; padding: 10px 18px; color: var(--night); border-color: var(--acid); background: linear-gradient(180deg, #d9ff82, var(--acid)); font-weight: 800; }
+    .action-button:hover { color: var(--paper); background: transparent; }
+    .board-footer { min-height: 48px; color: var(--muted); font: 12px/1.4 "Consolas", monospace; }
+    #pause { width: auto; padding: 0 12px; font: 700 11px/1 "Consolas", monospace; }
+    #pause[hidden] { display: none; }
+    .side-panel { display: grid; gap: 22px; padding-top: 28px; }
+    .section-label { justify-content: space-between; gap: 8px; margin-bottom: 10px; color: var(--muted); font: 700 10px/1.2 "Consolas", monospace; text-transform: uppercase; }
+    .section-label b { color: var(--paper); }
+    #hud { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+    .stat { min-height: 82px; padding: 14px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .stat span { display: block; margin-bottom: 8px; color: var(--muted); font: 700 10px/1 "Consolas", monospace; text-transform: uppercase; }
+    .stat b { font: 700 24px/1 "Consolas", monospace; font-variant-numeric: tabular-nums; }
+    .stat.score b { color: var(--acid); }
+    .stat.coins b { color: var(--coral); }
+    .power-heading { justify-content: space-between; margin-bottom: 10px; }
+    .power-heading h2, .shop-heading h2 { margin: 0; font: 700 20px/1.1 Georgia, "Times New Roman", serif; }
+    .power-note { color: var(--muted); font: 11px/1 "Consolas", monospace; }
+    #powers { display: grid; gap: 8px; }
+    .power-button { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; text-align: left; }
+    .power-button small { color: var(--muted); }
+    .power-button:disabled, .shop button:disabled { opacity: 0.42; cursor: default; }
+    .power-count { color: var(--acid); font: 700 13px/1 "Consolas", monospace; }
+    #msg { min-height: 20px; margin: -12px 0 0; color: var(--sky); font-size: 13px; }
+    .shop-section { padding-top: 18px; border-top: 1px solid var(--line); }
+    .shop-heading { justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+    .shop-heading span { color: var(--muted); font: 11px/1.2 "Consolas", monospace; }
+    #shop { display: flex; flex-wrap: wrap; gap: 8px; }
+    #shop h3 { flex-basis: 100%; margin: 6px 0 0; color: var(--muted); font: 700 10px/1.2 "Consolas", monospace; text-transform: uppercase; }
+    #shop button { min-height: 40px; padding: 8px 10px; font-size: 12px; }
+    #shop button.on { color: var(--night); border-color: var(--acid); background: var(--acid); }
+    #dpad { display: none; grid-template-columns: repeat(3, minmax(56px, 68px)); grid-template-rows: repeat(2, 56px); justify-content: center; gap: 8px; margin: 12px auto 0; touch-action: none; user-select: none; -webkit-user-select: none; }
+    #dpad button { padding: 0; font-size: 22px; }
+    @media (max-width: 760px) {
+      body { padding: 18px 14px 28px; }
+      .intro { padding: 22px 0 18px; }
+      .game-layout { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+      #board { max-width: 560px; margin: 0 auto; }
+      .side-panel { grid-template-columns: 1fr 1fr; gap: 18px; padding-top: 8px; }
+      .shop-section { grid-column: 1 / -1; }
+      #dpad { display: grid; }
+    }
+    @media (max-width: 480px) {
+      body { padding-inline: 12px; }
+      .brand { font-size: 10px; }
+      .edition { display: none; }
+      .intro { align-items: start; flex-direction: column; gap: 8px; padding: 20px 0 15px; }
+      h1 { font-size: 36px; }
+      .intro-copy { max-width: 38ch; font-size: 13px; }
+      .side-panel { grid-template-columns: 1fr; gap: 18px; }
+      .shop-section { grid-column: auto; }
+      .stat { min-height: 68px; padding: 12px; }
+      #dpad { grid-template-columns: repeat(3, minmax(60px, 76px)); grid-template-rows: repeat(2, 60px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="arcade">
+    <header class="masthead">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">S</span> Pocket arcade / 001</div>
+      <div class="edition">A little game of nerve</div>
+      <button id="mute" class="icon-button" type="button" aria-label="Mute sound" aria-pressed="false" title="Mute sound">♪</button>
+    </header>
+    <section class="intro" aria-labelledby="pageTitle">
+      <div><p class="eyebrow">Eat well. Turn carefully.</p><h1 id="pageTitle">Snake <span>Club</span></h1></div>
+      <p class="intro-copy">A familiar little arcade challenge. Collect fruit, build your streak, and see how long you can stay on the board.</p>
+    </section>
+    <section class="game-layout" aria-label="Snake game">
+      <div class="game-column">
+        <div class="board-bar"><span>Field 01 / 20 × 20</span><span id="gameState" aria-live="polite">Ready</span></div>
+        <div id="board">
+          <canvas id="game" width="400" height="400" aria-label="Snake game board" role="img"></canvas>
+          <div id="overlay">
+            <h2 id="overlayTitle">Ready?</h2>
+            <p id="overlayText">Eat fruit, collect coins, and avoid your tail and the rocks. Arrows or WASD to move.</p>
+            <button id="play" class="action-button" type="button">Start run</button>
+          </div>
+        </div>
+        <div class="board-footer"><span>ARROWS / WASD / SWIPE</span><button id="pause" class="icon-button" type="button" hidden>Pause</button></div>
+        <div id="dpad" aria-label="Touch direction controls">
+          <span></span><button type="button" data-dir="0,-1" aria-label="Move up">▲</button><span></span>
+          <button type="button" data-dir="-1,0" aria-label="Move left">◀</button><button type="button" data-dir="0,1" aria-label="Move down">▼</button><button type="button" data-dir="1,0" aria-label="Move right">▶</button>
+        </div>
+      </div>
+      <aside class="side-panel" aria-label="Game details and shop">
+        <section aria-label="Current run statistics">
+          <div class="section-label"><span>Current run</span><span>Personal best <b id="best">0</b></span></div>
+          <div id="hud">
+            <div class="stat score"><span>Score</span><b id="score" aria-live="polite">0</b></div>
+            <div class="stat"><span>Level</span><b id="level">1</b></div>
+            <div class="stat coins"><span>Coins</span><b id="coins">0</b></div>
+            <div class="stat"><span>Board</span><b>20×20</b></div>
+          </div>
+        </section>
+        <section class="power-section" aria-labelledby="powerTitle">
+          <div class="power-heading"><h2 id="powerTitle">Power-ups</h2><span class="power-note">1 / 2</span></div>
+          <div id="powers">
+            <button class="power-button" type="button" data-use="slow"><span>Slow motion <small>(5 sec)</small></span><span class="power-count">×<b id="slowCount">0</b></span></button>
+            <button class="power-button" type="button" data-use="pass"><span>Wall pass <small>(5 sec)</small></span><span class="power-count">×<b id="passCount">0</b></span></button>
+          </div>
+        </section>
+        <p id="msg" role="status" aria-live="polite"></p>
+        <section class="shop-section" aria-labelledby="shopTitle">
+          <div class="shop-heading"><h2 id="shopTitle">The counter</h2><span>Spend your coins</span></div>
+          <div id="shop"></div>
+        </section>
+      </aside>
+    </section>
+  </main>
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const CELL = 20;
+    const TILES = canvas.width / CELL;
+    const SPEED = 120;
+    const MIN_SPEED = 52;
+    const POWER_MS = 5000;
+    const FOOD_PER_LEVEL = 5;
+    const ROCKS_PER_LEVEL = 3;
+    const SAVE_KEY = "snakeSave";
+    const SKINS = {
+      green: { name: "Green", price: 0, head: "#c9f06b", body: "#89ba4f" },
+      blue: { name: "Blue", price: 20, head: "#75c9dc", body: "#348ca3" },
+      gold: { name: "Gold", price: 50, head: "#ffd071", body: "#d68b38" },
+      rainbow: { name: "Rainbow", price: 100 }
+    };
+    const POWERS = {
+      slow: { name: "Slow motion", price: 10 },
+      pass: { name: "Wall pass", price: 15 }
+    };
+    const DIRECTIONS = {
+      ArrowUp: { x: 0, y: -1 }, ArrowDown: { x: 0, y: 1 },
+      ArrowLeft: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 },
+      w: { x: 0, y: -1 }, s: { x: 0, y: 1 },
+      a: { x: -1, y: 0 }, d: { x: 1, y: 0 }
+    };
+
+    const initialSave = { coins: 0, owned: ["green"], skin: "green", slow: 0, pass: 0, muted: false };
+    let save = { ...initialSave };
+    try {
+      const stored = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
+      if (stored && typeof stored === "object" && !Array.isArray(stored)) save = { ...save, ...stored };
+    } catch {}
+    save.coins = Number.isFinite(Number(save.coins)) ? Math.max(0, Math.floor(Number(save.coins))) : 0;
+    save.owned = Array.isArray(save.owned) ? [...new Set(save.owned.filter(id => Object.hasOwn(SKINS, id)))] : ["green"];
+    if (!save.owned.includes("green")) save.owned.unshift("green");
+    if (!save.owned.includes(save.skin)) save.skin = "green";
+    for (const kind of Object.keys(POWERS)) save[kind] = Number.isFinite(Number(save[kind])) ? Math.max(0, Math.floor(Number(save[kind]))) : 0;
+    save.muted = Boolean(save.muted);
+
+    let best = 0;
+    try { best = Math.max(0, Number(localStorage.getItem("snakeBest")) || 0); } catch {}
+    let audio;
+    let snake = [];
+    let direction = { x: 1, y: 0 };
+    let nextDirection = { x: 1, y: 0 };
+    let food = null;
+    let rocks = [];
+    let score = 0;
+    let level = 1;
+    let gameState = "ready";
+    let timer = null;
+    let slowUntil = 0;
+    let passUntil = 0;
+    let touchStart = null;
+
+    function persist() {
+      try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+      } catch {
+        document.getElementById("msg").textContent = "Local storage is unavailable; progress may not be saved.";
+      }
+    }
+
+    function sound(frequency, duration = 0.1, type = "square", endFrequency = frequency) {
+      if (save.muted) return;
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      try {
+        audio ||= new AudioContextClass();
+        if (audio.state === "suspended") audio.resume();
+        const oscillator = audio.createOscillator();
+        const gain = audio.createGain();
+        const now = audio.currentTime;
+        oscillator.type = type;
+        oscillator.frequency.setValueAtTime(frequency, now);
+        oscillator.frequency.exponentialRampToValueAtTime(endFrequency, now + duration);
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        oscillator.connect(gain).connect(audio.destination);
+        oscillator.start(now);
+        oscillator.stop(now + duration);
+      } catch {}
+    }
+
+    const SOUNDS = {
+      eat: () => sound(600, 0.08, "square", 900),
+      level: () => [523, 659, 784, 1047].forEach((frequency, index) => setTimeout(() => sound(frequency, 0.12), index * 90)),
+      over: () => sound(400, 0.5, "sawtooth", 60),
+      power: () => sound(300, 0.3, "sine", 1200),
+      buy: () => sound(900, 0.1, "triangle", 1400)
+    };
+
+    const sameCell = (a, b) => a && b && a.x === b.x && a.y === b.y;
+    const randomCell = () => ({ x: Math.floor(Math.random() * TILES), y: Math.floor(Math.random() * TILES) });
+    const isSnakeCell = cell => snake.some(segment => sameCell(segment, cell));
+    const isRockCell = cell => rocks.some(rock => sameCell(rock, cell));
+
+    function placeFood() {
+      const free = [];
+      for (let y = 0; y < TILES; y++) {
+        for (let x = 0; x < TILES; x++) {
+          const cell = { x, y };
+          if (!isSnakeCell(cell) && !isRockCell(cell)) free.push(cell);
+        }
+      }
+      if (!free.length) {
+        food = null;
+        return false;
+      }
+      food = free[Math.floor(Math.random() * free.length)];
+      return true;
+    }
+
+    function placeRocks(count) {
+      const head = snake[0];
+      const available = [];
+      for (let y = 0; y < TILES; y++) {
+        for (let x = 0; x < TILES; x++) {
+          const cell = { x, y };
+          const distance = Math.abs(x - head.x) + Math.abs(y - head.y);
+          if (distance >= 4 && !isSnakeCell(cell) && !isRockCell(cell) && !sameCell(food, cell)) available.push(cell);
+        }
+      }
+      for (let i = 0; i < Math.min(count, available.length); i++) {
+        const index = Math.floor(Math.random() * available.length);
+        rocks.push(available.splice(index, 1)[0]);
+      }
+    }
+
+    function resetRun() {
+      clearTimeout(timer);
+      snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+      direction = { x: 1, y: 0 };
+      nextDirection = { x: 1, y: 0 };
+      score = 0;
+      level = 1;
+      rocks = [];
+      slowUntil = 0;
+      passUntil = 0;
+      placeFood();
+      updateStats();
+      draw();
+    }
+
+    function updateStats() {
+      document.getElementById("score").textContent = score;
+      document.getElementById("level").textContent = level;
+      document.getElementById("best").textContent = best;
+      document.getElementById("coins").textContent = save.coins;
+      document.getElementById("slowCount").textContent = save.slow;
+      document.getElementById("passCount").textContent = save.pass;
+      document.getElementById("gameState").textContent = {
+        ready: "Ready", running: activePowerLabel(), paused: "Paused", over: "Run over", won: "Complete"
+      }[gameState];
+      document.getElementById("board").dataset.state = gameState;
+      renderShop();
+      document.querySelectorAll("[data-use]").forEach(button => {
+        button.disabled = gameState !== "running" || save[button.dataset.use] < 1;
+      });
+      const pause = document.getElementById("pause");
+      pause.hidden = !["running", "paused"].includes(gameState);
+      pause.textContent = gameState === "paused" ? "Resume" : "Pause";
+    }
+
+    function activePowerLabel() {
+      const now = Date.now();
+      if (now < passUntil) return "Wall pass";
+      if (now < slowUntil) return "Slow motion";
+      return "Running";
+    }
+
+    function stepDelay() {
+      const base = Math.max(MIN_SPEED, SPEED - (level - 1) * 9);
+      return Date.now() < slowUntil ? base * 2 : base;
+    }
+
+    function levelUp() {
+      level++;
+      placeRocks(ROCKS_PER_LEVEL);
+      SOUNDS.level();
+      document.getElementById("msg").textContent = `Level ${level} · new rocks ahead`;
+      const board = document.getElementById("board");
+      board.animate(
+        [
+          { transform: "scale(1)" },
+          { transform: "scale(1.015)" },
+          { transform: "scale(1)" }
+        ],
+        { duration: 220, easing: "ease-out" }
+      );
+      updateStats();
+    }
+
+    function step() {
+      direction = nextDirection;
+      const head = { x: snake[0].x + direction.x, y: snake[0].y + direction.y };
+      const wallPassActive = Date.now() < passUntil;
+      if (wallPassActive) {
+        head.x = (head.x + TILES) % TILES;
+        head.y = (head.y + TILES) % TILES;
+      }
+      const hitWall = !wallPassActive && (head.x < 0 || head.y < 0 || head.x >= TILES || head.y >= TILES);
+      const eating = sameCell(head, food);
+      const bodyToCheck = eating ? snake : snake.slice(0, -1);
+      const hitSelf = bodyToCheck.some(segment => sameCell(segment, head));
+      const hitRock = !wallPassActive && isRockCell(head);
+      if (hitWall || hitSelf || hitRock) {
+        finishRun("over");
+        return;
+      }
+
+      snake.unshift(head);
+      if (eating) {
+        score++;
+        save.coins++;
+        persist();
+        document.getElementById("msg").textContent = "";
+        document.getElementById("score").textContent = score;
+        if (score % FOOD_PER_LEVEL === 0) levelUp();
+        else SOUNDS.eat();
+        if (!placeFood()) {
+          draw();
+          finishRun("won");
+          return;
+        }
+        updateStats();
+      } else {
+        snake.pop();
+      }
+      draw();
+    }
+
+    function tick() {
+      if (gameState !== "running") return;
+      step();
+      if (gameState === "running") {
+        document.getElementById("gameState").textContent = activePowerLabel();
+        timer = setTimeout(tick, stepDelay());
+      }
+    }
+
+    function draw() {
+      ctx.fillStyle = "#111914";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "rgba(154, 170, 155, 0.08)";
+      ctx.lineWidth = 1;
+      for (let tile = 0; tile <= TILES; tile++) {
+        ctx.beginPath();
+        ctx.moveTo(tile * CELL, 0);
+        ctx.lineTo(tile * CELL, canvas.height);
+        ctx.moveTo(0, tile * CELL);
+        ctx.lineTo(canvas.width, tile * CELL);
+        ctx.stroke();
+      }
+      for (const rock of rocks) {
+        ctx.fillStyle = "#677365";
+        ctx.fillRect(rock.x * CELL + 3, rock.y * CELL + 3, CELL - 6, CELL - 6);
+        ctx.fillStyle = "#879180";
+        ctx.fillRect(rock.x * CELL + 6, rock.y * CELL + 5, 4, 4);
+      }
+      if (food) {
+        ctx.fillStyle = "#ff735e";
+        ctx.beginPath();
+        ctx.arc(food.x * CELL + CELL / 2, food.y * CELL + CELL / 2 + 1, CELL * 0.34, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#c9f06b";
+        ctx.fillRect(food.x * CELL + 11, food.y * CELL + 1, 3, 5);
+      }
+      snake.forEach((segment, index) => {
+        ctx.fillStyle = save.skin === "rainbow"
+          ? `hsl(${(index * 25 + score * 11) % 360}, 78%, ${index ? 55 : 72}%)`
+          : index === 0 ? SKINS[save.skin].head : SKINS[save.skin].body;
+        ctx.fillRect(segment.x * CELL + 2, segment.y * CELL + 2, CELL - 4, CELL - 4);
+      });
+      if (snake.length) {
+        const head = snake[0];
+        const eyeX = head.x * CELL + CELL / 2 + direction.x * 4;
+        const eyeY = head.y * CELL + CELL / 2 + direction.y * 4;
+        ctx.fillStyle = "#151d19";
+        ctx.beginPath();
+        ctx.arc(eyeX - direction.y * 3, eyeY + direction.x * 3, 1.7, 0, Math.PI * 2);
+        ctx.arc(eyeX + direction.y * 3, eyeY - direction.x * 3, 1.7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function finishRun(result) {
+      clearTimeout(timer);
+      gameState = result;
+      let newBest = false;
+      if (score > best) {
+        best = score;
+        newBest = true;
+        try { localStorage.setItem("snakeBest", String(best)); } catch {}
+      }
+      if (result === "over") SOUNDS.over();
+      const title = result === "won" ? "Board cleared!" : newBest ? "New best!" : "Run over";
+      document.getElementById("overlayTitle").textContent = title;
+      document.getElementById("overlayText").textContent = result === "won"
+        ? `You filled every tile. Score ${score} · Level ${level}.`
+        : `Score ${score} · Level ${level}. Your coins and collection are saved.`;
+      document.getElementById("play").textContent = "Play again";
+      document.getElementById("overlay").hidden = false;
+      document.getElementById("msg").textContent = "";
+      const board = document.getElementById("board");
+      board.animate(
+        [
+          { transform: "scale(1)" },
+          { transform: "scale(1.02)" },
+          { transform: "scale(1)" }
+        ],
+        { duration: 260, easing: "ease-out" }
+      );
+      updateStats();
+    }
+
+    function startRun() {
+      resetRun();
+      gameState = "running";
+      document.getElementById("overlay").hidden = true;
+      document.getElementById("msg").textContent = "";
+      document.getElementById("play").textContent = "Start run";
+      document.getElementById("board").animate(
+        [
+          { transform: "scale(0.99)" },
+          { transform: "scale(1)" }
+        ],
+        { duration: 180, easing: "ease-out" }
+      );
+      updateStats();
+      timer = setTimeout(tick, SPEED);
+    }
+
+    function pauseRun() {
+      if (gameState === "running") {
+        clearTimeout(timer);
+        gameState = "paused";
+        document.getElementById("overlayTitle").textContent = "Paused";
+        document.getElementById("overlayText").textContent = "Take your time. Your run is right where you left it.";
+        document.getElementById("play").textContent = "Resume run";
+        document.getElementById("overlay").hidden = false;
+      } else if (gameState === "paused") {
+        gameState = "running";
+        document.getElementById("overlay").hidden = true;
+        timer = setTimeout(tick, stepDelay());
+      } else {
+        return;
+      }
+      updateStats();
+    }
+
+    function turn(x, y) {
+      if (gameState === "ready" || gameState === "over" || gameState === "won") startRun();
+      if (gameState !== "running") return;
+      if (x === -direction.x && y === -direction.y) return;
+      nextDirection = { x, y };
+    }
+
+    function usePower(kind) {
+      if (gameState !== "running" || save[kind] < 1) return;
+      save[kind]--;
+      if (kind === "slow") slowUntil = Date.now() + POWER_MS;
+      else passUntil = Date.now() + POWER_MS;
+      persist();
+      SOUNDS.power();
+      document.getElementById("msg").textContent = `${POWERS[kind].name} active · 5 seconds`;
+      updateStats();
+    }
+
+    function renderShop() {
+      const shop = document.getElementById("shop");
+      if (["running", "paused"].includes(gameState)) {
+        shop.replaceChildren();
+        return;
+      }
+      let markup = "<h3>Skins</h3>";
+      for (const [id, skin] of Object.entries(SKINS)) {
+        const owned = save.owned.includes(id);
+        const label = save.skin === id ? `${skin.name} · Selected` : owned ? `${skin.name} · Select` : `${skin.name} · ${skin.price} coins`;
+        markup += `<button type="button" data-skin="${id}" class="${save.skin === id ? "on" : ""}" ${!owned && save.coins < skin.price ? "disabled" : ""}>${label}</button>`;
+      }
+      markup += "<h3>Power-ups</h3>";
+      for (const [id, power] of Object.entries(POWERS)) {
+        markup += `<button type="button" data-buy="${id}" ${save.coins < power.price ? "disabled" : ""}>${power.name} · ${power.price} coins</button>`;
+      }
+      shop.innerHTML = markup;
+    }
+
+    document.getElementById("shop").addEventListener("click", event => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      if (button.dataset.skin) {
+        const id = button.dataset.skin;
+        if (!save.owned.includes(id)) {
+          if (save.coins < SKINS[id].price) return;
+          save.coins -= SKINS[id].price;
+          save.owned.push(id);
+        }
+        save.skin = id;
+      } else if (button.dataset.buy) {
+        const id = button.dataset.buy;
+        if (save.coins < POWERS[id].price) return;
+        save.coins -= POWERS[id].price;
+        save[id]++;
+      }
+      persist();
+      SOUNDS.buy();
+      updateStats();
+      draw();
+    });
+
+    document.getElementById("powers").addEventListener("click", event => {
+      const button = event.target.closest("button[data-use]");
+      if (button) usePower(button.dataset.use);
+    });
+    document.getElementById("play").addEventListener("click", () => {
+      if (gameState === "paused") pauseRun();
+      else startRun();
+    });
+    document.getElementById("pause").addEventListener("click", pauseRun);
+
+    const muteButton = document.getElementById("mute");
+    function updateMuteButton() {
+      muteButton.textContent = save.muted ? "×" : "♪";
+      muteButton.setAttribute("aria-label", save.muted ? "Unmute sound" : "Mute sound");
+      muteButton.setAttribute("title", save.muted ? "Unmute sound" : "Mute sound");
+      muteButton.setAttribute("aria-pressed", String(save.muted));
+    }
+    muteButton.addEventListener("click", () => {
+      save.muted = !save.muted;
+      persist();
+      updateMuteButton();
+    });
+    updateMuteButton();
+
+    document.addEventListener("keydown", event => {
+      const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+      if (key === " ") {
+        event.preventDefault();
+        pauseRun();
+        return;
+      }
+      if (key === "1") return usePower("slow");
+      if (key === "2") return usePower("pass");
+      const directionInput = DIRECTIONS[key];
+      if (directionInput) {
+        event.preventDefault();
+        turn(directionInput.x, directionInput.y);
+      }
+    });
+
+    document.getElementById("dpad").addEventListener("pointerdown", event => {
+      const button = event.target.closest("button[data-dir]");
+      if (!button) return;
+      event.preventDefault();
+      const [x, y] = button.dataset.dir.split(",").map(Number);
+      turn(x, y);
+    });
+
+    const board = document.getElementById("board");
+    board.addEventListener("touchstart", event => {
+      const touch = event.touches[0];
+      touchStart = { x: touch.clientX, y: touch.clientY };
+    }, { passive: true });
+    board.addEventListener("touchend", event => {
+      if (!touchStart) return;
+      const touch = event.changedTouches[0];
+      const dx = touch.clientX - touchStart.x;
+      const dy = touch.clientY - touchStart.y;
+      touchStart = null;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) return;
+      if (Math.abs(dx) > Math.abs(dy)) turn(Math.sign(dx), 0);
+      else turn(0, Math.sign(dy));
+    }, { passive: true });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden && gameState === "running") pauseRun();
+    });
+
+    resetRun();
+    updateStats();
+  </script>
+</body>
+</html>
